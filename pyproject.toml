@@ -1,13 +1,15 @@
 [project]
 name = "x-files"
 version = "0.1.0"
-description = "Add your description here"
+description = "Local-first encrypted-media vault with threshold recovery"
 readme = "README.md"
 authors = [
     { name = "lokrim", email = "ahmedzyed123@gmail.com" }
 ]
 requires-python = ">=3.12"
 dependencies = []
+[project.scripts]
+xfiles = "x_files.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.11.17,<0.12.0"]
