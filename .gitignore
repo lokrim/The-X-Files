@@ -25,6 +25,10 @@ node_modules/
 
 # Build, test and local validation outputs
 /.artifacts/
+/spikes/**/build/
+/spikes/**/.gradle/
+/spikes/**/.cxx/
+/spikes/**/local.properties
 /coverage/
 *.tsbuildinfo
 .metro-health-check*

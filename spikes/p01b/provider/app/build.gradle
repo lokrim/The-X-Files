@@ -1,0 +1,7 @@
+plugins { id 'com.android.application' }
+android {
+  namespace 'com.xfiles.p01bprovider'
+  compileSdk 37
+  buildToolsVersion '37.0.0'
+  defaultConfig { applicationId 'com.xfiles.p01bprovider'; minSdk 24; targetSdk 36; versionCode 1; versionName '0.1.0' }
+}

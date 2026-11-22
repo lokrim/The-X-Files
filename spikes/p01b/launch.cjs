@@ -30,6 +30,13 @@ function restore() {
 process.on('exit', restore);
 const pkg = JSON.parse(saved['package.json']);
 pkg.main = 'spikes/p01b/index.tsx';
+pkg.expo = {
+  ...pkg.expo,
+  autolinking: {
+    ...pkg.expo?.autolinking,
+    nativeModulesDir: './spikes/p01b/native',
+  },
+};
 fs.writeFileSync(
   path.join(root, 'package.json'),
   JSON.stringify(pkg, null, 2) + '\n',

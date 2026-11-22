@@ -1,0 +1,10 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application android:label="P01b synthetic provider" android:allowBackup="false">
+    <provider android:name=".SyntheticProvider" android:authorities="com.xfiles.p01bprovider" android:exported="true" android:grantUriPermissions="true" android:permission="android.permission.MANAGE_DOCUMENTS">
+      <intent-filter><action android:name="android.content.action.DOCUMENTS_PROVIDER" /></intent-filter>
+    </provider>
+    <receiver android:name=".ControlReceiver" android:exported="true">
+      <intent-filter><action android:name="com.xfiles.p01bprovider.GRANT" /><action android:name="com.xfiles.p01bprovider.REVOKE" /><action android:name="com.xfiles.p01bprovider.RESET" /><action android:name="com.xfiles.p01bprovider.STATUS" /></intent-filter>
+    </receiver>
+  </application>
+</manifest>

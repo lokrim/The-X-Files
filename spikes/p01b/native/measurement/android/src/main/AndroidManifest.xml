@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <service android:name="expo.modules.p01b.P01bService" android:exported="false" android:foregroundServiceType="dataSync" android:stopWithTask="false" />
+    <receiver android:name="expo.modules.p01b.P01bStatusReceiver" android:exported="true">
+      <intent-filter><action android:name="com.xfiles.P01B_STATUS" /><action android:name="com.xfiles.P01B_STOP" /></intent-filter>
+    </receiver>
+  </application>
+</manifest>
