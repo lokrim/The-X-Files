@@ -33,4 +33,4 @@ Edit those configuration sources instead of generated native files. Development 
 
 `npm run check` verifies dependency compatibility, app/test TypeScript, lint, tests, import boundaries, build-profile generation and the actual production Metro graph/assets. `npm run doctor` checks the Expo environment. Exact dependencies and required native peers are pinned in `package-lock.json`; `.npmrc` omits unnecessary implicit peers.
 
-Native builds and merged manifests still require verification. In the current environment, Gradle aborts when launching Node during settings evaluation. JavaScript/config checks and exported bundles do not certify a native build. After successful Gradle manifest generation, run `npm run check:native` to inspect the merged manifests.
+An arm64 Android development APK has compiled, installed and loaded Metro; actual debug/release manifest policy checks also pass. Device feasibility validation remains incomplete, and encryption/decryption are still unavailable. After generating manifests on your build host, run `npm run check:native`; JavaScript/config checks and exported bundles alone do not certify native behavior or a release APK.

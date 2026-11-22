@@ -23,6 +23,8 @@ const removePermissions = [
   'android.permission.READ_MEDIA_IMAGES',
   'android.permission.READ_MEDIA_VIDEO',
   'android.permission.READ_MEDIA_AUDIO',
+  'android.permission.USE_BIOMETRIC',
+  'android.permission.USE_FINGERPRINT',
 ];
 const header =
   '<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">';
