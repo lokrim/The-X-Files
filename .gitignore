@@ -1,0 +1,63 @@
+# Local planning pack and agent instructions
+/planning/
+/docs/
+/prompts/
+/AGENTS.md
+/.agents/
+/.codex/
+
+# Local scaffold planning notes; application and test code stays tracked
+/src/core/*/README.md
+/src/features/*/README.md
+/spikes/README.md
+/modules/README.md
+/test-utils/README.md
+/__tests__/vectors/README.md
+
+# Dependencies and generated Expo/native projects
+node_modules/
+/.expo/
+/android/
+/ios/
+/dist/
+/web-build/
+/expo-env.d.ts
+
+# Build, test and local validation outputs
+/.artifacts/
+/coverage/
+*.tsbuildinfo
+.metro-health-check*
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Environment, credentials and signing material
+.env
+.env.*
+!.env.example
+!.env.*.example
+/.aws/
+*.jks
+*.keystore
+*.p8
+*.p12
+*.pfx
+*.pem
+*.key
+*.mobileprovision
+*.orig.*
+/google-services.json
+/GoogleService-Info.plist
+
+# OS and editor files
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

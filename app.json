@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "X-Files",
+    "slug": "x-files",
+    "version": "0.1.0",
+    "scheme": "xfiles",
+    "platforms": ["android"],
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/images/icon.png",
+    "android": {
+      "package": "com.xfiles.app",
+      "allowBackup": false,
+      "permissions": [
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png",
+        "backgroundColor": "#F7F8FA"
+      }
+    },
+    "updates": {
+      "enabled": false
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-dev-client",
+        {
+          "launchMode": "most-recent",
+          "addGeneratedScheme": false
+        }
+      ],
+      "expo-font",
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": false
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F7F8FA",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 76
+        }
+      ],
+      "./plugins/with-offline-android.cjs",
+      "expo-asset"
+    ]
+  }
+}

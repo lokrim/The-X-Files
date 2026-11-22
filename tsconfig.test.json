@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "types": ["jest", "node", "react", "react-native"] },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "app/**/*.tsx",
+    "__tests__/**/*.ts",
+    "__tests__/**/*.tsx",
+    "test-utils/**/*.ts",
+    "test-utils/**/*.tsx"
+  ],
+  "exclude": ["node_modules", "spikes"]
+}
