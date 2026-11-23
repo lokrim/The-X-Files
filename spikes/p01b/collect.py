@@ -1,7 +1,11 @@
 """Collect only owned aggregate P01B events; never raw device exceptions/UI."""
 import json, pathlib, re, subprocess, sys
 path = pathlib.Path(sys.argv[1])
-pid = subprocess.check_output(['adb','shell','pidof','com.xfiles.app'], text=True).strip().split()[0]
+process = subprocess.run(['adb','shell','pidof','com.xfiles.app'], capture_output=True, text=True, timeout=15)
+if process.returncode or not process.stdout.strip():
+    print(json.dumps({'reason': 'P01B_PROCESS_NOT_RUNNING'}))
+    raise SystemExit(0)
+pid = process.stdout.strip().split()[0]
 raw = subprocess.check_output(['adb','logcat','--pid='+pid,'-d','-s','ReactNativeJS'], text=True)
 events = []
 for line in raw.splitlines():

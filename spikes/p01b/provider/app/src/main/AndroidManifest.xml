@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <queries><package android:name="com.xfiles.app" /></queries>
   <application android:label="P01b synthetic provider" android:allowBackup="false">
     <provider android:name=".SyntheticProvider" android:authorities="com.xfiles.p01bprovider" android:exported="true" android:grantUriPermissions="true" android:permission="android.permission.MANAGE_DOCUMENTS">
       <intent-filter><action android:name="android.content.action.DOCUMENTS_PROVIDER" /></intent-filter>

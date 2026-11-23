@@ -5,7 +5,13 @@ import { useKeepAwake } from 'expo-keep-awake';
 import { Button, Column, Host, Text } from '@expo/ui';
 import { useEffect, useRef, useState } from 'react';
 import { aeadChecks, kdfChecks, nativeKdfChecks } from './crypto';
-import { safFaults, revokedProbe, streamLarge } from './faults';
+import {
+  safFaults,
+  revokedProbe,
+  streamLarge,
+  cancelNativeOutput,
+  readPickedNative,
+} from './faults';
 import {
   setServiceReporter,
   startService,
@@ -28,9 +34,12 @@ declare global {
         | 'crypto'
         | 'aead'
         | 'nativeKdf'
+        | 'kdf'
         | 'faults'
         | 'revoked'
         | 'large'
+        | 'cancelOutput'
+        | 'pickNative'
         | 'service'
         | 'plainService'
         | 'disabledService'
@@ -57,9 +66,28 @@ function Harness() {
         }),
       aead: () => run(async () => aeadChecks(report)),
       nativeKdf: () => run(async () => nativeKdfChecks(report)),
+      kdf: () => run(async () => kdfChecks(report)),
       faults: () => run(async () => safFaults(report)),
       revoked: () => run(async () => revokedProbe(report)),
-      large: () => run(async () => streamLarge(report)),
+      large: () => run(async (signal) => streamLarge(report, signal)),
+      cancelOutput: () => run(async () => cancelNativeOutput(report)),
+      pickNative: () =>
+        run(async (signal) => {
+          report('NATIVE_PICKER_BEFORE', { cacheBytes: Paths.cache.size });
+          const picked = await DocumentPicker.getDocumentAsync({
+            copyToCacheDirectory: false,
+            multiple: false,
+          });
+          report('NATIVE_PICKER_AFTER', {
+            cacheBytes: Paths.cache.size,
+            cancelled: picked.canceled,
+          });
+          if (!picked.canceled) {
+            if ((picked.assets[0]!.size ?? 0) < 2000000000)
+              throw new SpikeError('LARGE_FILE_REQUIRED');
+            await readPickedNative(picked.assets[0]!.uri, signal, report);
+          }
+        }),
       service: () => run(async () => startService(true)),
       plainService: () => run(async () => startService(false)),
       disabledService: () => run(async () => startService(true, true)),

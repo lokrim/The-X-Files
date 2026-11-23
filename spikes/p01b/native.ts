@@ -31,6 +31,7 @@ export interface Measurement {
   startService(headless: boolean, disabled: boolean): boolean;
   stopService(): boolean;
   notificationPermission(): boolean;
+  uriGrant(uri: string): { read: boolean; write: boolean };
   deleteTestChannels(): void;
   cleanupTestFiles(): { before: number; remaining: number };
   poke(sequence: number): void;
