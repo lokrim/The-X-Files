@@ -5,6 +5,7 @@ const { spawn } = require('node:child_process');
 const root = path.resolve(__dirname, '../..');
 const backup = path.join(root, '.artifacts/p01b/wiring.json');
 const targets = ['package.json', 'metro.config.cjs', 'tsconfig.json'];
+const nativeCheck = process.argv.includes('--native-check');
 if (process.argv.includes('--restore')) {
   const saved = JSON.parse(fs.readFileSync(backup, 'utf8'));
   for (const name of targets)
@@ -46,16 +47,28 @@ fs.writeFileSync(
   "module.exports = require('./spikes/p01b/metro.cjs');\n",
 );
 const child = spawn(
-  process.execPath,
-  [
-    path.join(root, 'node_modules/expo/bin/cli'),
-    'start',
-    '--dev-client',
-    '--localhost',
-    '--port',
-    '8081',
-    '--clear',
-  ],
+  nativeCheck
+    ? process.env.XFILES_P01B_GRADLE || path.join(root, 'android/gradlew')
+    : process.execPath,
+  nativeCheck
+    ? [
+        '-p',
+        'android',
+        ':app:assembleDebug',
+        '-PreactNativeArchitectures=arm64-v8a',
+        '--offline',
+        '--no-daemon',
+        '--max-workers=2',
+      ]
+    : [
+        path.join(root, 'node_modules/expo/bin/cli'),
+        'start',
+        '--dev-client',
+        '--localhost',
+        '--port',
+        '8081',
+        '--clear',
+      ],
   {
     cwd: root,
     stdio: 'inherit',

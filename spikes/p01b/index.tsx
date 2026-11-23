@@ -42,6 +42,9 @@ declare global {
         | 'pickNative'
         | 'service'
         | 'plainService'
+        | 'timerService'
+        | 'steadyService'
+        | 'slowService'
         | 'disabledService'
         | 'stopService'
         | 'serviceStatus'
@@ -89,7 +92,14 @@ function Harness() {
           }
         }),
       service: () => run(async () => startService(true)),
-      plainService: () => run(async () => startService(false)),
+      plainService: () =>
+        run(async () => startService(false, false, 'js-timer')),
+      timerService: () =>
+        run(async () => startService(true, false, 'js-timer')),
+      steadyService: () =>
+        run(async () => startService(true, false, 'native-steady')),
+      slowService: () =>
+        run(async () => startService(true, false, 'native-slow')),
       disabledService: () => run(async () => startService(true, true)),
       stopService: () => stopService(report),
       serviceStatus: () => serviceStatus(report),

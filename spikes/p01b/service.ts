@@ -1,46 +1,60 @@
 import { AppRegistry } from 'react-native';
 import { measurement } from './native';
 import { SpikeError, type Report } from './saf';
+import {
+  isServiceTask,
+  runServiceLoop,
+  type Scheduler,
+  type ServiceTask,
+} from './service-loop';
 let report: Report | undefined;
 const pause = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 export function setServiceReporter(value: Report) {
   report = value;
 }
-async function progressLoop() {
+async function progressLoop(task: ServiceTask) {
   const native = measurement();
   if (!native) throw new SpikeError('NATIVE_MODULE_MISSING');
-  let seq = 0;
-  const chunk = new Uint8Array(1048576);
-  try {
-    while (native.serviceState().running) {
-      const bytes = await native.workChunk(chunk);
-      if (!bytes || !native.serviceState().running) break;
-      native.poke(++seq);
-      // No console/Metro traffic during background/locked progress measurement.
-      await pause(200);
-    }
-  } catch {
-    native.stopService();
-    report?.('SERVICE_JS_FAILED', { reason: 'IO_ERROR' });
-  } finally {
-    chunk.fill(0);
-  }
+  // No console/Metro events are emitted until this actual JS/I/O loop exits.
+  const result = await runServiceLoop(native, task, pause);
+  if (result.failed)
+    report?.('SERVICE_JS_FAILED', {
+      generation: task.generation,
+      reason: 'IO_ERROR',
+    });
   const state = native.serviceState();
+  const stale = state.generation !== task.generation;
   report?.('SERVICE_JS_EXIT', {
-    sequence: seq,
-    reason: state.reason,
-    cleanupComplete: state.cleanupComplete,
+    generation: task.generation,
+    scheduler: task.scheduler,
+    sequence: result.sequence,
+    stale,
+    reason: stale ? 'STALE_GENERATION' : state.reason,
+    cleanupComplete: !stale && state.cleanupComplete,
   });
 }
-AppRegistry.registerHeadlessTask('P01bForeground', () => progressLoop);
-export async function startService(headless = true, disabled = false) {
+AppRegistry.registerHeadlessTask(
+  'P01bForeground',
+  () => async (data: unknown) => {
+    if (!isServiceTask(data)) throw new SpikeError('BAD_SERVICE_TASK');
+    await progressLoop(data);
+  },
+);
+export async function startService(
+  headless = true,
+  disabled = false,
+  scheduler: Scheduler = 'native-paced',
+) {
   const native = measurement();
   if (!native) throw new SpikeError('NATIVE_MODULE_MISSING');
-  native.startService(headless, disabled);
-  if (!headless) {
-    await pause(150);
-    await progressLoop();
+  if (native.serviceState().diagnosticsVersion !== 2)
+    throw new SpikeError('REBUILD_SPIKE_CLIENT');
+  const generation = native.startService(headless, disabled, scheduler);
+  if (!(await native.awaitServiceReady(generation))) {
+    native.stopGeneration(generation);
+    throw new SpikeError('SERVICE_START_FAILED');
   }
+  if (!headless) await progressLoop({ generation, scheduler });
 }
 export function serviceStatus(report: Report) {
   const native = measurement();
@@ -50,7 +64,8 @@ export function serviceStatus(report: Report) {
 export async function stopService(report: Report) {
   const native = measurement();
   if (!native) throw new SpikeError('NATIVE_MODULE_MISSING');
-  native.stopService();
-  await pause(500);
+  const generation = native.serviceState().generation;
+  native.stopGeneration(generation);
+  await native.awaitCleanup(generation);
   serviceStatus(report);
 }

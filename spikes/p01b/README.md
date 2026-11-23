@@ -19,7 +19,45 @@ node spikes/p01b/call.cjs revoked
 
 The separate provider declares a visibility query for only the fixed target package. Verify both provider-side and target-side grants before attributing an open/read failure to the SDK. Earlier unclassified failures did not establish ESPIPE; current instrumentation reports that category only when the SDK error contains an illegal-seek marker and access was confirmed. Native errors retain allowlisted query/open/read stages; never print raw errors/URIs. Cases run independently. `large` applies bounded 2 GB read/reopen/write/count/digest/delete with native/RSS/Hermes memory sampling; `pickNative` uses a real no-copy DocumentPicker URI; `cancelOutput` measures new-output partial cleanup. Unknown destination capacity warns. The simulated full-provider fault does not actually exhaust the phone filesystem.
 
-`service.ts` plus the local Kotlin module compare ordinary foreground service behavior with activating HeadlessJS on the existing ReactContext. No additional JS runtime or wake-lock permission is introduced. Counters advance only from real JS-invoked bounded I/O. `service-watch.py` makes **no adb/debugger/progress-polling calls during its quiet interval**, then records native sequence/byte/last-tick-age/notification/lock state before stopping and checking cleanup. `maxGapMs` alone misses a terminal stall; inspect last-tick age too. Work has a duration/size safety cap. Test actual user channel disable through system settings: Android may normalize a programmatic NONE channel to LOW. Restore captured timeout and notification settings in finally. Results, including the measured locked-background failure and stop rule, are in DECISIONS/PROGRESS; do not promote this service into production or add permissions/runtime silently. No notification library was installed.
+The service candidate is now **measurement module0.2.0 / diagnostics schema2**. It retains the same ReactContext and HeadlessJS runtime. The default record loop awaits a native coroutine instead of a React Native JS timer. This is an unmeasured candidate, not a proven wake mechanism: native delays/HandlerThread callbacks also stop when the CPU suspends. No wake-lock permission, new dependency or extra JS runtime is introduced.
+
+`service-loop.ts` fences every work/progress/wait/stop call by generation and checks again after native I/O. A late completion cannot write for or stop a replacement job. Native cancellation wakes pending coroutine waits; file cleanup runs separately from the main/timeout thread and waits for an in-flight write to close. The native diagnostic heartbeat advances only its own counters, never the JS sequence or work-byte counter. Clock deltas, task/activity lifecycle and power/keyguard state distinguish suspend observations from scheduling stalls; they do not prove a unique cause. A native watchdog checks the ten-minute cap, including when JS is stalled; it cannot wake a suspended CPU. Writes stop before exceeding the2 GB synthetic-work cap.
+
+| Host control action | Scheduler | Intended use |
+|---|---|---|
+| `plainService` | JS timer200 ms, no headless task | Short foreground-service-only baseline |
+| `timerService` | JS timer200 ms, headless task | Reproduce/compare the old scheduling path with the same new probes |
+| `service` / UI “Start dataSync service” | Native coroutine200 ms | Main candidate for330 s background/lock trials |
+| `slowService` | Native coroutine1,000 ms | Slow/idle-wait candidate for330 s trials |
+| `steadyService` | Native yield, no deliberate wait | Short control only;2 GB cap can end it early, never five-minute acceptance evidence |
+
+Compile without a phone or Metro (requires the generated Android project and cached toolchain/dependencies):
+
+```sh
+NODE_ENV=development EXPO_OFFLINE=1 XFILES_P01B=1 node spikes/p01b/launch.cjs --native-check
+npx tsc -p spikes/p01b/tsconfig.json --noEmit
+npx tsc -p spikes/p01b/tsconfig.tests.json --noEmit
+npx jest --config spikes/p01b/jest.config.cjs --runInBand
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s spikes/p01b/__tests__ -p 'test_*.py'
+```
+
+`--native-check` runs only arm64 `assembleDebug --offline` and restores wiring when it exits, including on build failure; set `XFILES_P01B_GRADLE` to an existing verified Gradle executable if the wrapper cache is unavailable. It does not start a server, install an app, run adb or produce physical-phone measurements. Unit tests cover late-result/cancel/restart behavior and evidence/cleanup logic; mocked healthy samples are not device proof.
+
+For a physical rerun, enable Developer options/USB debugging, connect/authorize a data cable, and verify `adb devices` lists the physical phone as `device`. Start the development launcher normally, run `npx expo run:android` to rebuild/install the matching schema2 client and select the phone, then configure USB forwarding above. The previous normal release app has no measurement module. Before each comparison stop/verify cleanup, then use a fresh app process and bring the harness to the foreground. Preserve notification/timeout settings; enable notifications/the test channel for the positive privacy window. Never reuse an evidence output filename.
+
+```sh
+# Foreground app; run one profile per fresh process. Locked trials leave the phone locked.
+node spikes/p01b/call.cjs timerService
+python3 spikes/p01b/service-watch.py locked .artifacts/p01b/timer-v2-lock-01.json --scheduler js-timer
+# After cleanup/restart and returning to the foreground:
+node spikes/p01b/call.cjs service
+python3 spikes/p01b/service-watch.py locked .artifacts/p01b/native-v2-lock-01.json --scheduler native-paced
+# Repeat candidate with mode background, then slowService/native-slow with locked/background.
+```
+
+The runner requires one unambiguous physical phone and a development build; it correlates snapshots and cleanup with the process instance plus generation. It performs **no adb/debugger/progress polling during the entire quiet interval**, captures native state first afterward, and attempts stop/cleanup for the owned generation in finally. Both terminal age and maximum JS gap must be <=5,000 ms (explicit harness threshold), real JS sequence/byte progress and private ongoing notification must exist, and lock/background/lifetime evidence must match. Old/missing diagnostics never pass. Native counters alone cannot pass. Native clocks and heartbeat help diagnose a failure even if JS resumes when the endpoint command wakes the phone. Outputs distinguish PASS/FAIL/INCOMPLETE/CONTROL; a window pass is not overall P01b acceptance.
+
+Use runner mode `timeout` for a25 s window: it captures the existing dataSync setting, applies10,000 ms, requires an actual new native timeout callback, and restores the captured setting in finally. If disconnected, cleanup/restore remain unconfirmed and the output retains `timeoutSettingBefore` for manual recovery. Recheck notification denial, actual user-disabled channel (programmatic NONE may become LOW), cancel/success, pending-wait/restart races and force-stop partial cleanup. Service behavior and all new phone results stay unmeasured until these trials run. Results and the stop rule are in DECISIONS/PROGRESS; never promote the measurement service or silently add permissions/runtime.
 
 `memory.py` records aggregate dumpsys baselines/sampled peaks (no raw dumps); create the matching `.stop` file to finish it. `device.py` navigates known labels only, avoiding unrelated UI text/filename logs; Android picker navigation may require the phone user's help. `call.cjs` is host-only CDP control; `collect.py` extracts only this app's allowlisted aggregate events from adb. Neither belongs in app code. Results, limitations and the remaining fix plan are in DECISIONS/PROGRESS. Android17 debug results do not supply Android14/15 or identified mid-range reference coverage.
 

@@ -3,9 +3,9 @@ plugins {
   id 'expo-module-gradle-plugin'
 }
 group = 'com.xfiles.p01b'
-version = '0.1.0'
+version = '0.2.0'
 dependencies { implementation 'com.facebook.react:react-android' }
 android {
   namespace 'expo.modules.p01b'
-  defaultConfig { versionCode 1; versionName '0.1.0' }
+  defaultConfig { versionCode 2; versionName '0.2.0' }
 }

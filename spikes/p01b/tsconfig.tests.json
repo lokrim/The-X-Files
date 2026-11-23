@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "types": ["jest", "node", "react", "react-native"] },
+  "include": ["./__tests__/*.ts", "./service-loop.ts"],
+  "exclude": []
+}

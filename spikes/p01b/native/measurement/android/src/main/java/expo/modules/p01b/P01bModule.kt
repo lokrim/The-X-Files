@@ -13,19 +13,19 @@ import android.os.SystemClock
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import com.facebook.react.bridge.ReactContext
+import com.facebook.react.common.LifecycleState
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.functions.Coroutine
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.InputStream
 import java.io.OutputStream
 import java.io.File
-import java.io.FileOutputStream
 import java.io.FileNotFoundException
 import java.io.IOException
-import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -56,15 +56,34 @@ class P01bModule : Module() {
       mapOf("nativeAllocatedBytes" to Debug.getNativeHeapAllocatedSize(), "totalPssKiB" to m.totalPss, "rssKiB" to number("VmRSS:"), "rssHighWaterKiB" to number("VmHWM:"))
     }
     Function("serviceState") { P01bState.snapshot(context()) }
-    Function("startService") { headless: Boolean, disabledChannel: Boolean ->
+    Function("startService") { headless: Boolean, disabledChannel: Boolean, mode: String ->
       val ctx = context()
-      if (appContext.currentActivity == null) throw CodedException("P01B_FOREGROUND_REQUIRED")
-      P01bState.react = WeakReference(ctx as ReactContext)
-      val intent = Intent(ctx, P01bService::class.java).putExtra("headless", headless).putExtra("disabled", disabledChannel)
-      if (Build.VERSION.SDK_INT >= 26) ctx.startForegroundService(intent) else ctx.startService(intent)
-      true
+      val react = ctx as? ReactContext ?: throw CodedException("P01B_CONTEXT_UNAVAILABLE")
+      if (appContext.currentActivity == null || react.lifecycleState != LifecycleState.RESUMED) throw CodedException("P01B_FOREGROUND_REQUIRED")
+      if (mode !in setOf("js-timer", "native-paced", "native-steady", "native-slow")) throw CodedException("P01B_BAD_MODE")
+      val generation = try { P01bState.prepare(react, mode) } catch (_: IllegalStateException) { throw CodedException("P01B_BUSY") }
+      val intent = Intent(ctx, P01bService::class.java).putExtra("headless", headless).putExtra("disabled", disabledChannel).putExtra("generation", generation)
+      try { if (Build.VERSION.SDK_INT >= 26) ctx.startForegroundService(intent) else ctx.startService(intent) }
+      catch (_: Exception) { P01bState.cancel(generation, "START_FAILED"); P01bState.cleanup(generation); throw CodedException("P01B_START_FAILED") }
+      generation
     }
-    Function("stopService") { context().stopService(Intent(context(), P01bService::class.java)) }
+    Function("stopGeneration") { generation: Long ->
+      if (P01bState.cancel(generation, "CANCELLED")) context().stopService(Intent(context(), P01bService::class.java)) else false
+    }
+    Function("stopService") {
+      P01bState.cancel(P01bState.generation, "CANCELLED")
+      context().stopService(Intent(context(), P01bService::class.java))
+    }
+    AsyncFunction("awaitServiceReady") Coroutine { generation: Long -> withContext(Dispatchers.Default) { P01bState.awaitReady(generation) } }
+    AsyncFunction("waitForRecord") Coroutine { generation: Long, milliseconds: Int -> withContext(Dispatchers.Default) {
+      if (milliseconds !in 0..2000) throw CodedException("P01B_BAD_WAIT")
+      P01bState.waitForRecord(generation, milliseconds)
+    } }
+    AsyncFunction("awaitCleanup") Coroutine { generation: Long -> withContext(Dispatchers.Default) {
+      val start = SystemClock.elapsedRealtime()
+      while (generation == P01bState.generation && !P01bState.cleanupComplete && SystemClock.elapsedRealtime() - start < 2000) delay(10)
+      generation == P01bState.generation && P01bState.cleanupComplete
+    } }
     Function("notificationPermission") { context().checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED }
     Function("uriGrant") { raw: String ->
       val ctx = context(); val uri = Uri.parse(raw)
@@ -75,6 +94,7 @@ class P01bModule : Module() {
       manager.deleteNotificationChannel("p01b-jobs"); manager.deleteNotificationChannel("p01b-disabled")
     }
     Function("cleanupTestFiles") {
+      if (P01bState.running.get() || P01bState.prepared(P01bState.generation)) throw CodedException("P01B_BUSY")
       val files = File(context().cacheDir, "p01b-spike").listFiles() ?: emptyArray()
       val before = files.size; files.forEach { it.delete() }; mapOf("before" to before, "remaining" to (File(context().cacheDir, "p01b-spike").listFiles()?.size ?: 0))
     }
@@ -120,21 +140,15 @@ class P01bModule : Module() {
       readers.values.forEach { try { it.close() } catch (_: Exception) {} }; readers.clear()
       writers.values.forEach { try { it.stream.close() } catch (_: Exception) {} }; writers.clear()
     }
-    Function("poke") { sequence: Int -> P01bState.poke(sequence) }
-    AsyncFunction("workChunk") Coroutine { bytes: ByteArray -> withContext(Dispatchers.IO) {
+    Function("poke") { generation: Long, sequence: Int -> P01bState.poke(generation, sequence) }
+    AsyncFunction("workChunk") Coroutine { generation: Long, bytes: ByteArray -> withContext(Dispatchers.IO) {
       if (bytes.size > 1048576) safeError()
-      // Bound unattended synthetic test writes even if adb is disconnected.
-      if (P01bState.running.get() && (SystemClock.elapsedRealtime() - P01bState.started >= 600000L || P01bState.workBytes.get() >= 2000000000L)) {
-        P01bState.reason = "TEST_LIMIT"; P01bState.running.set(false)
-        context().stopService(Intent(context(), P01bService::class.java))
+      val count = try { P01bState.write(generation, bytes) } catch (_: Exception) {
+        if (P01bState.cancel(generation, "IO_ERROR")) context().stopService(Intent(context(), P01bService::class.java))
+        safeError()
       }
-      synchronized(P01bState) { if (!P01bState.running.get()) 0 else {
-        val file = P01bState.owned
-        if (file == null) 0 else try {
-          FileOutputStream(file, true).use { it.write(bytes) }
-          P01bState.workBytes.addAndGet(bytes.size.toLong()); bytes.size
-        } catch (_: Exception) { safeError() }
-      } }
+      if (generation == P01bState.generation && P01bState.reason == "TEST_LIMIT") context().stopService(Intent(context(), P01bService::class.java))
+      count
     } }
   }
 }
