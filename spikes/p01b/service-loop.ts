@@ -55,9 +55,14 @@ export async function runServiceLoop(
     }
   } catch {
     failed = true;
-    // Native also checks the generation, so a late rejection cannot stop a new job.
-    port.stopGeneration(task.generation);
   } finally {
+    // A normal bounded-work exit must also remove the service/notification.
+    // Native checks ownership so late completion cannot stop a replacement job.
+    try {
+      port.stopGeneration(task.generation);
+    } catch {
+      failed = true;
+    }
     chunk.fill(0);
   }
   return { sequence, failed };

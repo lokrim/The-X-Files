@@ -103,6 +103,29 @@ test('a late successful wait cannot start writes for a replacement job', async (
   waiting.resolve(true);
   await done;
   expect(port.workChunk).toHaveBeenCalledTimes(1);
-  expect(port.stopGeneration).not.toHaveBeenCalled();
+  expect(port.stopGeneration).toHaveBeenCalledWith(1);
   expect(state.running).toBe(true);
+});
+
+test('normal bounded work completion stops the owned service and wipes its buffer', async () => {
+  const { state, port, task, jsWait, writes } = setup();
+  port.workChunk.mockImplementation(async (_g, bytes) => {
+    writes.push(bytes);
+    bytes[0] = 7;
+    return 0;
+  });
+  expect((await runServiceLoop(port, task, jsWait)).failed).toBe(false);
+  expect(port.stopGeneration).toHaveBeenCalledTimes(1);
+  expect(state.running).toBe(false);
+  expect(port.poke).not.toHaveBeenCalled();
+  expect(writes[0]!.every((x) => x === 0)).toBe(true);
+});
+
+test('a failing stop still wipes the owned buffer and reports failure', async () => {
+  const { port, task, jsWait, writes } = setup();
+  port.stopGeneration.mockImplementation(() => {
+    throw new Error('TEST_STOP_ERROR');
+  });
+  expect((await runServiceLoop(port, task, jsWait)).failed).toBe(true);
+  expect(writes[0]!.every((x) => x === 0)).toBe(true);
 });

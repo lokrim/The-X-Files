@@ -61,6 +61,12 @@ class EvidenceRegression(unittest.TestCase):
                      timeoutStopMs=5, activeNotifications=0, cleanupAttempted=True)
         self.assertEqual(timeout_verdict(before, after)['result'], 'INCOMPLETE')
 
+    def test_stopped_timeout_heartbeat_ages_are_not_a_scheduling_stall(self):
+        before, after = window()
+        after.update(running=False, reason='SERVICE_TIMEOUT', lastTickAgeMs=18000,
+                     nativeLastTickAgeMs=18000)
+        self.assertEqual(diagnose(before, after), 'JOB_ENDED')
+
 
 if __name__ == '__main__':
     unittest.main()

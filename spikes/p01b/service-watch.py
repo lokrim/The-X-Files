@@ -42,12 +42,39 @@ try:
         original_timeout = captured
         result['timeoutSettingBefore'] = original_timeout
         adb('shell', 'device_config', 'put', 'activity_manager', 'data_sync_fgs_timeout_duration', '10000')
-    before = time.monotonic()
     if args.mode == 'locked' and initial.get('interactive') is not True:
         raise ValueError('SCREEN_ALREADY_OFF')
     adb('shell', 'input', 'keyevent', '3')
     if args.mode == 'locked':
+        # SLEEP is idempotent; POWER would wake an already sleeping display.
+        adb('shell', 'input', 'keyevent', '223')
+    transition = snapshot()
+    # SLEEP is not honored consistently by this device. Only fall back to POWER
+    # after a fresh positive interactive state, never toggle a sleeping display.
+    if (args.mode == 'locked' and transition.get('interactive') is True
+            and transition.get('reactLifecycle') == 'BEFORE_RESUME'
+            and transition.get('hostResumes') == initial.get('hostResumes')):
         adb('shell', 'input', 'keyevent', '26')
+        transition = snapshot()
+    # Some phones defer keyguard activation after the display sleeps. This is
+    # preflight only; the full quiet interval starts after lock is confirmed.
+    lock_deadline = time.monotonic() + 45
+    while (args.mode == 'locked' and transition.get('interactive') is False
+           and transition.get('keyguardLocked') is not True
+           and transition.get('reactLifecycle') == 'BEFORE_RESUME'
+           and transition.get('hostResumes') == initial.get('hostResumes')
+           and time.monotonic() < lock_deadline):
+        time.sleep(1)
+        transition = snapshot()
+    result['transition'] = transition
+    if any(transition.get(k) != initial.get(k) for k in ('generation', 'processStartedElapsedMs')) or transition.get('reactLifecycle') == 'RESUMED' or transition.get('hostResumes') != initial.get('hostResumes'):
+        raise ValueError('BACKGROUND_NOT_CONFIRMED')
+    if args.mode == 'locked' and (transition.get('interactive') is not False or transition.get('keyguardLocked') is not True):
+        raise ValueError('LOCK_NOT_CONFIRMED')
+    before = time.monotonic()
+    print(json.dumps({'phase': 'QUIET_WINDOW_STARTED', 'mode': args.mode,
+                      'seconds': seconds, 'scheduler': transition.get('scheduler'),
+                      'lockConfirmed': transition.get('keyguardLocked') is True}), flush=True)
     # No adb, debugger, log, or app interaction for the entire interval.
     time.sleep(seconds)
     # Capture app-owned clocks/counters FIRST, before extra commands wake processes.
@@ -71,6 +98,7 @@ except (subprocess.SubprocessError, OSError, ValueError, KeyError) as error:
     # Only our own allowlisted precondition codes, never raw subprocess/device text.
     codes = {'SERVICE_NOT_READY', 'WRONG_SCHEDULER', 'STEADY_IS_A_SHORT_CONTROL_ONLY',
              'START_FROM_FOREGROUND_REQUIRED', 'SCREEN_ALREADY_OFF', 'OWNED_STATE_NOT_FOUND',
+             'BACKGROUND_NOT_CONFIRMED', 'LOCK_NOT_CONFIRMED',
              'PHYSICAL_PHONE_REQUIRED', 'DEVELOPMENT_BUILD_REQUIRED',
              'UNSUPPORTED_TIMEOUT_SETTING', 'PHONE_RAM_UNAVAILABLE'}
     reason = str(error) if type(error) is ValueError and str(error) in codes else 'DEVICE_WINDOW_ERROR'

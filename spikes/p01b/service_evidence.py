@@ -48,6 +48,8 @@ def background_verdict(initial, after, quiet_seconds, locked):
 
 
 def diagnose(initial, after):
+    if after.get('running') is False:
+        return 'JOB_ENDED'
     if any(not number(s.get(k)) for s in (initial, after) for k in ('elapsedMs', 'uptimeMs')):
         return 'INCONCLUSIVE'
     elapsed = after.get('elapsedMs', 0) - initial.get('elapsedMs', 0)
