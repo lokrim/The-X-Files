@@ -5,15 +5,21 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "noEmit": true,
-    "paths": { "@/*": ["./src/*"] },
-    "types": ["react", "react-native"]
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    },
+    "types": [
+      "react",
+      "react-native"
+    ]
   },
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
     "app/**/*.ts",
-    "app/**/*.tsx",
-    "expo-env.d.ts"
+    "app/**/*.tsx"
   ],
   "exclude": [
     "node_modules",

@@ -6,6 +6,12 @@ import { settingsStore } from '@/platform/composition';
 import { useTheme } from '@/ui/theme';
 import { spacing, typography } from '@/ui/tokens';
 
+const themeOptions = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+] as const;
+
 export default function Settings() {
   const { colors, scheme } = useTheme();
   const { settings, ready, storageError, setTheme } = useStore(settingsStore);
@@ -17,14 +23,15 @@ export default function Settings() {
       <Text style={{ ...typography.title, color: colors.text }}>Theme</Text>
       <Host matchContents colorScheme={scheme}>
         <Column>
-          {(['system', 'light', 'dark'] as const).map((theme) => (
+          {themeOptions.map(({ value, label }) => (
             <Button
-              key={theme}
+              key={value}
+              label={settings.theme === value ? `✓ ${label}` : label}
               disabled={!ready}
               onPress={() => {
-                void setTheme(theme);
+                void setTheme(value);
               }}
-            >{`${settings.theme === theme ? '✓ ' : ''}${theme.charAt(0).toUpperCase()}${theme.slice(1)}`}</Button>
+            />
           ))}
         </Column>
       </Host>
