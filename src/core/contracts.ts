@@ -48,7 +48,11 @@ export interface Kdf {
 }
 
 export interface ByteReader {
-  /** Up to max bytes; short reads are valid, null/empty means terminal EOF. */
+  /**
+   * Up to max bytes; short reads are valid, null/empty means terminal EOF.
+   * Returned bytes are scratch. Consume or copy them before the next read.
+   * The caller may clear them after consumption.
+   */
   read(max: number): Promise<Uint8Array | null>;
   size(): Promise<number>;
 }
@@ -57,7 +61,10 @@ export interface ByteWriter {
   /** Resolves after all bytes are consumed; only then may the caller reuse them. */
   write(bytes: Uint8Array): Promise<void>;
   close(): Promise<void>;
-  /** Idempotently close/delete this operation's new output; report failed cleanup. */
+  /**
+   * Idempotently delete this operation's new output, even after close.
+   * A failed close or deletion must be reported.
+   */
   abort(): Promise<void>;
 }
 

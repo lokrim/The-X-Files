@@ -1,5 +1,8 @@
 import { equalBytes, zeroize } from './bytes';
 import { CoreError } from './errors';
+import { encodeUtf8, isWellFormedUnicode, utf8CodePointBytes } from './utf8';
+
+export { isWellFormedUnicode } from './utf8';
 
 // Public local strength hints, not password fixtures or a KDF transformation.
 const commonPasswords = new Set([
@@ -17,22 +20,10 @@ const commonPasswords = new Set([
 ]);
 export type PasswordStrength = 'weak' | 'fair' | 'strong';
 
-export function isWellFormedUnicode(input: string): boolean {
-  for (let i = 0; i < input.length; i++) {
-    const unit = input.charCodeAt(i);
-    if (unit >= 0xd800 && unit <= 0xdbff) {
-      const next = input.charCodeAt(++i);
-      if (!(next >= 0xdc00 && next <= 0xdfff)) return false;
-    } else if (unit >= 0xdc00 && unit <= 0xdfff) return false;
-  }
-  return true;
-}
-
 function utf8Length(input: string): number {
   let bytes = 0;
   for (const char of input) {
-    const point = char.codePointAt(0)!;
-    bytes += point <= 0x7f ? 1 : point <= 0x7ff ? 2 : point <= 0xffff ? 3 : 4;
+    bytes += utf8CodePointBytes(char.codePointAt(0)!);
     if (bytes > 1024) throw new CoreError('PASSWORD_TOO_LONG');
   }
   return bytes;
@@ -53,27 +44,7 @@ export function normalizePassword(input: string): string {
 
 /** Pure UTF-8 avoids relying on a platform TextEncoder shim in the core. */
 export function passwordToBytes(input: string): Uint8Array {
-  const normalized = normalizePassword(input);
-  const output = new Uint8Array(utf8Length(normalized));
-  let offset = 0;
-  for (const char of normalized) {
-    const n = char.codePointAt(0)!;
-    if (n <= 0x7f) output[offset++] = n;
-    else if (n <= 0x7ff) {
-      output[offset++] = 0xc0 | (n >>> 6);
-      output[offset++] = 0x80 | (n & 63);
-    } else if (n <= 0xffff) {
-      output[offset++] = 0xe0 | (n >>> 12);
-      output[offset++] = 0x80 | ((n >>> 6) & 63);
-      output[offset++] = 0x80 | (n & 63);
-    } else {
-      output[offset++] = 0xf0 | (n >>> 18);
-      output[offset++] = 0x80 | ((n >>> 12) & 63);
-      output[offset++] = 0x80 | ((n >>> 6) & 63);
-      output[offset++] = 0x80 | (n & 63);
-    }
-  }
-  return output;
+  return encodeUtf8(normalizePassword(input), 1024, 'PASSWORD_TOO_LONG');
 }
 
 export function confirmedPasswordBytes(

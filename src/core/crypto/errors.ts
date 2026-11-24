@@ -24,12 +24,14 @@ export type CodecErrorCode =
   | 'UNSUPPORTED_VERSION';
 export type ShareErrorCode =
   'INSUFFICIENT' | 'DUPLICATE_INDEX' | 'MIXED_SET' | 'INCONSISTENT';
-export type PasswordErrorCode =
-  | 'EMPTY_PASSWORD'
-  | 'MALFORMED_UNICODE'
-  | 'PASSWORD_TOO_SHORT'
-  | 'PASSWORD_TOO_LONG'
-  | 'PASSWORD_MISMATCH';
+export const passwordErrorCodes = [
+  'EMPTY_PASSWORD',
+  'MALFORMED_UNICODE',
+  'PASSWORD_TOO_SHORT',
+  'PASSWORD_TOO_LONG',
+  'PASSWORD_MISMATCH',
+] as const;
+export type PasswordErrorCode = (typeof passwordErrorCodes)[number];
 export type CoreErrorCode =
   OperationErrorCode | CodecErrorCode | ShareErrorCode | PasswordErrorCode;
 
