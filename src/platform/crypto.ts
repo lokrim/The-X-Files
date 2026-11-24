@@ -114,51 +114,68 @@ type StartScrypt = (
   callback: (error: Error | null, key?: Uint8Array) => void,
 ) => void;
 
-export function createQuickScrypt(start: StartScrypt = scrypt): Kdf {
+export type ScryptCancellation =
+  { pending: true } | { pending: false; callbackLatencyMs: number };
+
+export function createQuickScrypt(start: StartScrypt = scrypt) {
   let nativeDeriving = false;
-  return createPolicyKdf({
-    derive(passwordBytes, salt, { log2N, r, p, dkLen }, signal) {
-      if (nativeDeriving) throw new CoreError('IO_ERROR');
-      return new Promise((resolve, reject) => {
-        if (signal?.aborted) {
-          reject(new CoreError('CANCELLED'));
-          return;
-        }
-        const password = Uint8Array.from(passwordBytes);
-        const ownedSalt = Uint8Array.from(salt);
-        let completed = false;
-        const cancel = () => reject(new CoreError('CANCELLED'));
-        const finish = (error: unknown, key?: Uint8Array) => {
-          try {
-            if (completed) return;
-            completed = true;
-            nativeDeriving = false;
-            signal?.removeEventListener('abort', cancel);
-            zeroize(password, ownedSalt);
-            if (signal?.aborted) cancel();
-            else if (error || key?.length !== dkLen)
-              reject(new CoreError('IO_ERROR'));
-            else resolve(Uint8Array.from(key));
-          } finally {
-            zeroize(key);
+  const withCancellationStatus = (
+    status?: (value: ScryptCancellation) => void,
+  ): Kdf =>
+    createPolicyKdf({
+      derive(passwordBytes, salt, { log2N, r, p, dkLen }, signal) {
+        if (nativeDeriving) throw new CoreError('IO_ERROR');
+        return new Promise((resolve, reject) => {
+          if (signal?.aborted) {
+            reject(new CoreError('CANCELLED'));
+            return;
           }
-        };
-        nativeDeriving = true;
-        signal?.addEventListener('abort', cancel, { once: true });
-        try {
-          start(
-            password,
-            ownedSalt,
-            dkLen,
-            { N: 2 ** log2N, r, p, maxmem },
-            finish,
-          );
-        } catch (error: unknown) {
-          finish(error);
-        }
-      });
-    },
-  });
+          const password = Uint8Array.from(passwordBytes);
+          const ownedSalt = Uint8Array.from(salt);
+          let completed = false;
+          let abortedAt: number | undefined;
+          const cancel = () => {
+            abortedAt = performance.now();
+            reject(new CoreError('CANCELLED'));
+            status?.({ pending: true });
+          };
+          const finish = (error: unknown, key?: Uint8Array) => {
+            try {
+              if (completed) return;
+              completed = true;
+              nativeDeriving = false;
+              signal?.removeEventListener('abort', cancel);
+              zeroize(password, ownedSalt);
+              if (signal?.aborted) reject(new CoreError('CANCELLED'));
+              else if (error || key?.length !== dkLen)
+                reject(new CoreError('IO_ERROR'));
+              else resolve(Uint8Array.from(key));
+            } finally {
+              zeroize(key);
+            }
+            if (abortedAt !== undefined)
+              status?.({
+                pending: false,
+                callbackLatencyMs: performance.now() - abortedAt,
+              });
+          };
+          nativeDeriving = true;
+          signal?.addEventListener('abort', cancel, { once: true });
+          try {
+            start(
+              password,
+              ownedSalt,
+              dkLen,
+              { N: 2 ** log2N, r, p, maxmem },
+              finish,
+            );
+          } catch (error: unknown) {
+            finish(error);
+          }
+        });
+      },
+    });
+  return Object.assign(withCancellationStatus(), { withCancellationStatus });
 }
 
 export const cryptoAdapters = {

@@ -22,14 +22,25 @@ export type SavedFile = {
   kind: 'ciphertext' | 'plaintext';
 };
 
-export async function pickSources(multiple: boolean): Promise<PickedSource[]> {
+export class SourceCountLimitError extends CoreError {
+  constructor() {
+    super('RESOURCE_LIMIT');
+  }
+}
+
+export async function pickSources(
+  multiple: boolean,
+  remaining = Number.MAX_SAFE_INTEGER,
+): Promise<PickedSource[]> {
   const result = await getDocumentAsync({
+    type: '*/*',
     multiple,
     copyToCacheDirectory: false,
   }).catch(() => {
     throw new CoreError('UNSUPPORTED_PROVIDER');
   });
   if (result.canceled) return [];
+  if (result.assets.length > remaining) throw new SourceCountLimitError();
   const sources: PickedSource[] = [];
   for (const asset of result.assets) {
     sources.push({

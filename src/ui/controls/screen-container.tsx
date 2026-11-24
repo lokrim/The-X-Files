@@ -10,22 +10,27 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
 import { layout, spacing } from '../tokens';
 
-export function ScreenContainer({ children }: { children: ReactNode }) {
+export function useScreenContainerInsets() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { colors } = useTheme();
   const gutter = width < 380 ? spacing.lg : spacing.xl;
+  return {
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xxl + insets.bottom,
+    paddingLeft: gutter + insets.left,
+    paddingRight: gutter + insets.right,
+  };
+}
+
+export function ScreenContainer({ children }: { children: ReactNode }) {
+  const insets = useScreenContainerInsets();
+  const { colors } = useTheme();
 
   return (
     <ScrollView
       style={{ backgroundColor: colors.bg }}
       keyboardShouldPersistTaps="handled"
-      contentContainerStyle={{
-        paddingTop: spacing.xl,
-        paddingBottom: spacing.xxl + insets.bottom,
-        paddingLeft: gutter + insets.left,
-        paddingRight: gutter + insets.right,
-      }}
+      contentContainerStyle={insets}
     >
       <View style={styles.content}>{children}</View>
     </ScrollView>

@@ -138,6 +138,8 @@ class XFilesModule : Module() {
       }
     }.runOnQueue(Queues.MAIN)
 
+    AsyncFunction("jobNotificationsEnabled") { FileJobService.notificationsEnabled(react()) }
+
     AsyncFunction("start") {
       foreground()
       val context = react()
@@ -261,6 +263,16 @@ class XFilesModule : Module() {
     }
     AsyncFunction("closeWriter") Coroutine { generation: Int, writer: Int ->
       io(generation) { job -> (job.files[writer] as? Output ?: fail("IO_ERROR")).close() }
+    }
+    AsyncFunction("outputLabel") Coroutine { generation: Int, writer: Int ->
+      io(generation) { job ->
+        val uri = (job.files[writer] as? Output)?.uri ?: fail("IO_ERROR")
+        runCatching {
+          react().contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null, job.ioCancellation)?.use {
+            if (it.moveToFirst() && !it.isNull(0)) it.getString(0) else null
+          }
+        }.getOrNull()
+      }
     }
     AsyncFunction("abortOutput") Coroutine { generation: Int, writer: Int ->
       io(generation) { job ->

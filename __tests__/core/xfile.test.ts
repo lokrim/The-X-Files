@@ -599,6 +599,47 @@ test('password writer uses production scrypt and fresh salt across attempts', as
   expect(invalid.output.aborted).toBe(true);
 });
 
+test('releases the caller password bytes before waiting for output rollback', async () => {
+  const rollback = deferred();
+  const release = deferred();
+  const output = memoryWriter();
+  let borrowed: Uint8Array | undefined;
+  const result = encryptXfile(
+    memoryReader(empty).reader,
+    {
+      ...output.writer,
+      async abort() {
+        rollback.resolve();
+        await release.ready;
+      },
+    },
+    {
+      aead: nodeAead,
+      rng: seededRng(27),
+      protection: {
+        mode: 'password',
+        takePassword: () => 'public fixture',
+        kdf: {
+          async derive(password) {
+            borrowed = password;
+            throw new CoreError('CANCELLED');
+          },
+        },
+      },
+      createdAtUnixSec: fixtureDate,
+      metadata: { ...fixtureMetadata, totalSize: 0 },
+    },
+  );
+  const cancelled = expect(result).rejects.toMatchObject({ code: 'CANCELLED' });
+  await rollback.ready;
+  try {
+    expect(borrowed).toEqual(new Uint8Array('public fixture'.length));
+  } finally {
+    release.resolve();
+    await cancelled;
+  }
+});
+
 test('awaits slow output, wipes consumed plaintext, and cancels without reading ahead', async () => {
   const controller = new AbortController();
   const { bytes } = referenceXfile(Buffer.alloc(readerChunk * 2 + 1, 0x21), {

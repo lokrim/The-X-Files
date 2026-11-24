@@ -51,15 +51,23 @@ test('cancelled native derivation retains ownership until callback and then wipe
   });
   const kdf = createQuickScrypt(start);
   const cancel = new AbortController();
-  const work = kdf.derive(password, salt, writerScryptParams, cancel.signal);
+  const report = jest.fn();
+  const work = kdf
+    .withCancellationStatus(report)
+    .derive(password, salt, writerScryptParams, cancel.signal);
   cancel.abort();
   await expect(work).rejects.toMatchObject({ code: 'CANCELLED' });
   await expect(
     kdf.derive(password, salt, writerScryptParams),
   ).rejects.toMatchObject({ code: 'IO_ERROR' });
   expect(lateKey[0]).toBe(7);
+  expect(report.mock.calls.flat()).toEqual([{ pending: true }]);
   finish!();
   expect(lateKey).toEqual(new Uint8Array(32));
+  expect(report).toHaveBeenLastCalledWith({
+    pending: false,
+    callbackLatencyMs: expect.any(Number),
+  });
   expect(password[0]).toBe(6);
   expect(start).toHaveBeenCalledTimes(1);
 });

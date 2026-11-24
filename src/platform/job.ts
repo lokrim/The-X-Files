@@ -36,13 +36,14 @@ export function sweepStartupTemp() {
 
 let registered = false;
 export async function requestJobNotifications() {
-  if (Number(Platform.Version) < 33) return true;
-  const permission = PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS;
-  if (await PermissionsAndroid.check(permission)) return true;
-  return (
-    (await PermissionsAndroid.request(permission)) ===
-    PermissionsAndroid.RESULTS.GRANTED
-  );
+  if (Number(Platform.Version) >= 33) {
+    const permission = PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS;
+    if (!(await PermissionsAndroid.check(permission))) {
+      const outcome = await PermissionsAndroid.request(permission);
+      if (outcome !== PermissionsAndroid.RESULTS.GRANTED) return false;
+    }
+  }
+  return nativeCall((native) => native.jobNotificationsEnabled());
 }
 
 // The native bridge exposes one current generation. Keep ownership through
@@ -106,6 +107,7 @@ async function runOwnedJob<T>(
   void ended.catch(() => undefined);
 
   let result: T | undefined;
+  let cleanupReported = false;
   try {
     const ready = await nativeCall((native) => native.awaitReady(generation));
     if (!ready) throw terminal ?? new CoreError('IO_ERROR');
@@ -131,11 +133,11 @@ async function runOwnedJob<T>(
           throw terminal ?? new CoreError('CANCELLED');
       },
     }).then((value) => {
+      if (cleanupReported) discard?.(value);
+      else result = value;
       if (controller.signal.aborted) {
-        discard?.(value);
         throw terminal ?? new CoreError('CANCELLED');
       }
-      result = value;
       return value;
     });
     await Promise.race([running, ended]);
@@ -148,7 +150,6 @@ async function runOwnedJob<T>(
   } catch (error) {
     const primary = error instanceof CoreError ? error : operationError(error);
     controller.abort();
-    if (result !== undefined) discard?.(result);
     const stopped = await stop().then(
       () => true,
       () => false,
@@ -165,6 +166,8 @@ async function runOwnedJob<T>(
       native.awaitCleanup(generation),
     ).catch(() => false);
     if (!cleaned) controls.onCleanupFailure();
+    cleanupReported = true;
+    if (result !== undefined) discard?.(result);
     throw new JobError(
       controls.signal?.aborted && terminal?.code !== 'SERVICE_TIMEOUT'
         ? new CoreError('CANCELLED')

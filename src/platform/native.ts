@@ -7,6 +7,8 @@ export type JobEnd = 'COMPLETED' | 'CANCELLED' | 'SERVICE_TIMEOUT' | 'IO_ERROR';
 
 interface XFilesNative {
   directoryLabel(tree: string): Promise<string>;
+  outputLabel(generation: number, writer: number): Promise<string | null>;
+  jobNotificationsEnabled(): Promise<boolean>;
   chooseDirectory(): Promise<string | null>;
   shareDocument(uri: string, mime: string): Promise<void>;
   start(): Promise<number>;

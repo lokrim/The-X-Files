@@ -4,7 +4,13 @@ import { useTheme } from '../theme';
 import { radius, spacing } from '../tokens';
 import { UiText } from './text';
 
-export function Progress({ label, value }: { label: string; value?: number }) {
+export function Progress({
+  label,
+  value,
+}: {
+  label: string;
+  value?: number | undefined;
+}) {
   const { colors } = useTheme();
   const percent =
     value === undefined || !Number.isFinite(value)

@@ -30,10 +30,9 @@ export function checkCapacity(demands: readonly Demand[]) {
   return { unknown };
 }
 
-export async function preflight(
+export async function inspectCapacity(
   tree: string,
   destinationBytes: number,
-  warning: CapacityWarning,
   tempBytes?: number,
 ) {
   const destination = {
@@ -49,7 +48,17 @@ export async function preflight(
             volume: await nativeCall((native) => native.volume(null)),
           },
         ];
-  if (checkCapacity([destination, ...cache]).unknown) await warning();
+  return checkCapacity([destination, ...cache]);
+}
+
+export async function preflight(
+  tree: string,
+  destinationBytes: number,
+  warning: CapacityWarning,
+  tempBytes?: number,
+) {
+  if ((await inspectCapacity(tree, destinationBytes, tempBytes)).unknown)
+    await warning();
 }
 
 // Sample during writes as well. The original allocation plan has accounted

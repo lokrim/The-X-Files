@@ -26,8 +26,10 @@ import { encodeMetadata, type XfileMetadataInput } from './metadata';
 import { containerSize, payloadRecordCount } from './plan';
 import { sealRecord } from './records';
 
-type EncryptProtection =
-  { mode: 'raw' } | { mode: 'password'; password: string; kdf: Kdf };
+export type EncryptPassword = { mode: 'password' } & (
+  { password: string } | { takePassword: () => string }
+);
+type EncryptProtection = { mode: 'raw' } | (EncryptPassword & { kdf: Kdf });
 
 type EncryptOptions = StreamOptions & {
   aead: Aead;
@@ -63,7 +65,6 @@ export async function encryptXfile(
 ): Promise<EncryptResult> {
   const { signal, aead, protection, createdAtUnixSec } = options;
   let metadata: Uint8Array | undefined;
-  let passwordBytes: Uint8Array | undefined;
   let fileKey: Uint8Array | undefined;
   let salt: Uint8Array | undefined;
   let transferred = false;
@@ -78,15 +79,22 @@ export async function encryptXfile(
     await checkSourceSize(input, totalSize, signal);
     salt = rng.bytes(16);
     if (protection.mode === 'password') {
-      passwordBytes = passwordToBytes(protection.password);
-      fileKey = await createPolicyKdf(protection.kdf).derive(
-        passwordBytes,
-        salt,
-        writerScryptParams,
-        signal,
-        options.onKdfProgress,
+      const passwordBytes = passwordToBytes(
+        'password' in protection
+          ? protection.password
+          : protection.takePassword(),
       );
-      zeroize(passwordBytes);
+      try {
+        fileKey = await createPolicyKdf(protection.kdf).derive(
+          passwordBytes,
+          salt,
+          writerScryptParams,
+          signal,
+          options.onKdfProgress,
+        );
+      } finally {
+        zeroize(passwordBytes);
+      }
     } else {
       fileKey = rng.bytes(32);
     }
@@ -145,7 +153,7 @@ export async function encryptXfile(
   } catch (error) {
     return await abortOutputs([output], error);
   } finally {
-    zeroize(metadata, passwordBytes, salt);
+    zeroize(metadata, salt);
     if (!transferred) zeroize(fileKey);
   }
 }

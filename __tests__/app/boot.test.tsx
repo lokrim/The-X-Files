@@ -63,14 +63,26 @@ test.each([
       const buttons = screen.container.queryAll(
         (node) => node.props.accessibilityRole === 'button',
       );
-      const actionCards = buttons.filter(
-        (button) => button.props.accessibilityState.disabled,
+      const actionCards = buttons.filter((button) =>
+        /^(Encrypt|Decrypt),/.test(button.props.accessibilityLabel),
       );
       expect(actionCards).toHaveLength(2);
       expect(actionCards.map((card) => card.props.accessibilityLabel)).toEqual([
-        expect.stringMatching(/^Encrypt,.*Not available yet\.$/),
+        expect.stringMatching(/^Encrypt, Protect/),
         expect.stringMatching(/^Decrypt,.*Not available yet\.$/),
       ]);
+      expect(
+        actionCards.map((card) => card.props.accessibilityState.disabled),
+      ).toEqual([false, true]);
+      await act(async () => {
+        actionCards[0]!.props.onClick({
+          nativeEvent: {},
+          target: null,
+          currentTarget: null,
+          stopPropagation() {},
+        });
+      });
+      expect(mockPush).toHaveBeenLastCalledWith('/encrypt');
       expect(
         actionCards.map(
           (card) => ReactNative.StyleSheet.flatten(card.props.style)?.flex,

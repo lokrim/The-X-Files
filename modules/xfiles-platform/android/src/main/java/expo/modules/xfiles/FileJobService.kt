@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.content.Context
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
@@ -100,6 +101,12 @@ class FileJobService : Service() {
     private const val CHANNEL = "xfiles-file-jobs"
     private const val NOTIFICATION = 1901
     private var instance: FileJobService? = null
+
+    fun notificationsEnabled(context: Context): Boolean {
+      val manager = context.getSystemService(NotificationManager::class.java)
+      return manager.areNotificationsEnabled() && (Build.VERSION.SDK_INT < 26 ||
+        manager.getNotificationChannel(CHANNEL)?.importance != NotificationManager.IMPORTANCE_NONE)
+    }
 
     fun progress(generation: Int, percent: Int) {
       instance?.update(generation, percent.coerceIn(0, 100))

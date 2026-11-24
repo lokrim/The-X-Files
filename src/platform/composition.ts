@@ -9,12 +9,15 @@ export {
   pickSources,
   shareFile,
   shareSecret,
+  SourceCountLimitError,
 } from './file-io';
 export {
   decryptToDestination,
   encryptToDestination,
+  encryptWithRecovery,
   saveCopy,
 } from './file-jobs';
+export { inspectCapacity } from './capacity';
 export { JobError, requestJobNotifications, sweepStartupTemp } from './job';
 
 export const settingsStore = createSettingsStore(settingsStorage);

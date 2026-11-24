@@ -56,8 +56,15 @@ export default function Home() {
         {actions.map(({ title, description, icon }) => (
           <Card
             key={title}
-            label={`${title}, ${description} Not available yet.`}
-            disabled
+            label={
+              title === 'Encrypt'
+                ? `${title}, ${description}`
+                : `${title}, ${description} Not available yet.`
+            }
+            disabled={title !== 'Encrypt'}
+            {...(title === 'Encrypt'
+              ? { onPress: () => router.push('/encrypt') }
+              : {})}
             style={wide && styles.wideCard}
           >
             <View style={styles.action}>
@@ -69,9 +76,11 @@ export default function Home() {
               <View style={styles.details}>
                 <UiText variant="title">{title}</UiText>
                 <UiText tone="muted">{description}</UiText>
-                <UiText variant="caption" tone="muted">
-                  Not available yet
-                </UiText>
+                {title !== 'Encrypt' && (
+                  <UiText variant="caption" tone="muted">
+                    Not available yet
+                  </UiText>
+                )}
               </View>
             </View>
           </Card>

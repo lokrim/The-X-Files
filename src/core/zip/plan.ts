@@ -1,6 +1,6 @@
 import { CoreError } from '../crypto/errors';
 import { utf8CodePointBytes } from '../crypto/utf8';
-import { encodeFlatName, maxNameBytes } from '../file-names';
+import { encodeFlatName, maxNameBytes, truncateName } from '../file-names';
 import { addSize, checkedSize, maxPayloadBytes } from '../sizes';
 import {
   centralHeaderBytes,
@@ -11,16 +11,6 @@ import {
 import { maxCreateEntries } from './limits';
 
 export type ZipInput = Readonly<{ name: string; size: number }>;
-
-function truncateName(name: string, byteBudget: number): string {
-  let end = 0;
-  for (const char of name) {
-    byteBudget -= utf8CodePointBytes(char.codePointAt(0)!);
-    if (byteBudget < 0) break;
-    end += char.length;
-  }
-  return name.slice(0, end);
-}
 
 function suffixedName(name: string, number: number): string {
   const dot = name.lastIndexOf('.');

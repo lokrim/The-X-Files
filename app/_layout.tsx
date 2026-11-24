@@ -22,6 +22,7 @@ function AppStack() {
       >
         <Stack.Screen name="index" options={{ title: 'X-Files' }} />
         <Stack.Screen name="settings" options={{ title: 'Settings' }} />
+        <Stack.Screen name="encrypt" options={{ title: 'Encrypt' }} />
       </Stack>
     </>
   );

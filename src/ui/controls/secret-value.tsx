@@ -15,6 +15,8 @@ export function SecretValue({
   onHoldStart,
   onHoldEnd,
   onCopy,
+  onShare,
+  disabled = false,
 }: {
   label: string;
   renderValue: () => string;
@@ -24,6 +26,8 @@ export function SecretValue({
   onHoldStart: () => void;
   onHoldEnd: () => void;
   onCopy: () => void;
+  onShare?: () => void;
+  disabled?: boolean;
 }) {
   return (
     <Card>
@@ -54,19 +58,31 @@ export function SecretValue({
           label={`${revealed ? 'Hide' : 'Reveal'} ${label.toLowerCase()}`}
           icon={revealed ? 'visibility-off' : 'visibility'}
           variant="outlined"
+          disabled={disabled}
           onPress={onToggleReveal}
         />
         <Button
           label={`Hold to reveal ${label.toLowerCase()}`}
           variant="text"
+          disabled={disabled}
           onPressIn={onHoldStart}
           onPressOut={onHoldEnd}
         />
         <Button
           label={`Copy ${label.toLowerCase()}`}
           icon="content-copy"
+          disabled={disabled}
           onPress={onCopy}
         />
+        {onShare && (
+          <Button
+            label={`Share ${label.toLowerCase()}`}
+            icon="share"
+            variant="outlined"
+            disabled={disabled}
+            onPress={onShare}
+          />
+        )}
       </View>
     </Card>
   );

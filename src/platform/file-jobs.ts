@@ -11,18 +11,18 @@ import { maxChunkBytes } from '@/core/sizes';
 import {
   decryptXfile,
   encryptXfile,
-  planXfile,
+  type EncryptPassword,
   type EncryptResult,
-  type XfileMetadataInput,
 } from '@/core/xfile';
-import { planStoreZip, writeStoreZip } from '@/core/zip';
+import { writeStoreZip } from '@/core/zip';
 import {
   checkCapacity,
   preflight,
   writeSpaceCheck,
   type CapacityWarning,
 } from './capacity';
-import { cryptoAdapters } from './crypto';
+import { cryptoAdapters, type ScryptCancellation } from './crypto';
+import { planEncryption } from './encryption-plan';
 import {
   createWriter,
   savedFile,
@@ -40,18 +40,34 @@ type JobDestination = {
   controls: JobControls;
   onUnknownCapacity: CapacityWarning;
 };
-type Protection = { mode: 'raw' } | { mode: 'password'; password: string };
+type Protection = { mode: 'raw' } | EncryptPassword;
 type Credential =
   { mode: 'raw'; fileKey: Uint8Array } | { mode: 'password'; password: string };
 
-export async function encryptToDestination(
-  options: JobDestination & {
-    sources: readonly PickedSource[];
-    protection: Protection;
-    outputName: string;
-    bundleName: string;
-    createdAtUnixSec: number;
-  },
+export type EncryptionStage = 'preparing' | 'deriving' | 'running';
+
+type EncryptionJob = JobDestination & {
+  sources: readonly PickedSource[];
+  protection: Protection;
+  outputName: string;
+  bundleName: string;
+  createdAtUnixSec: number;
+  onStage?: (stage: EncryptionStage) => void;
+  onScryptCancellation?: (status: ScryptCancellation) => void;
+};
+
+export function encryptToDestination(options: EncryptionJob) {
+  return encryptWithRecovery(options, (result) => result, wipeEncryptionKey);
+}
+
+function wipeEncryptionKey(result: EncryptResult) {
+  if (result.mode === 'raw') zeroize(result.fileKey);
+}
+
+export async function encryptWithRecovery<T>(
+  options: EncryptionJob,
+  recover: (result: EncryptResult) => T,
+  discard: (recovery: T) => void,
 ) {
   const {
     sources,
@@ -61,27 +77,13 @@ export async function encryptToDestination(
     createdAtUnixSec,
     controls,
     onUnknownCapacity,
+    onStage,
+    onScryptCancellation,
   } = options;
   const { tree, label } = options.destination;
-  const zip = sources.length > 1 ? planStoreZip(sources) : undefined;
-  const first = sources[0];
-  if (!first) throw new CoreError('IO_ERROR');
-  const metadata: XfileMetadataInput = zip
-    ? {
-        name: bundleName,
-        isZip: true,
-        totalSize: zip.totalSize,
-        entryCount: sources.length,
-        mime: 'application/zip',
-      }
-    : {
-        name: first.name.normalize('NFC'),
-        isZip: false,
-        totalSize: first.size,
-        entryCount: 1,
-        mime: first.mime,
-      };
-  const planned = planXfile(metadata);
+  const planned = planEncryption(sources, bundleName);
+  const { zip, metadata } = planned;
+  const first = sources[0]!;
   await preflight(tree, planned.totalSize, onUnknownCapacity, zip?.totalSize);
   return runFileJob(
     controls,
@@ -89,6 +91,7 @@ export async function encryptToDestination(
       let result: EncryptResult | undefined;
       try {
         const { generation } = job;
+        if (zip) onStage?.('preparing');
         const temp = zip
           ? await createWriter(
               generation,
@@ -116,13 +119,26 @@ export async function encryptToDestination(
           binaryMime,
           writeSpaceCheck(tree, planned.totalSize),
         );
+        const kdf =
+          cryptoAdapters.kdf.withCancellationStatus(onScryptCancellation);
+        if (protection.mode === 'raw') onStage?.('running');
         await withReader(generation, temp?.id ?? first.uri, async (reader) => {
           result = await encryptXfile(reader, output, {
             ...job,
             ...cryptoAdapters,
             protection:
               protection.mode === 'password'
-                ? { ...protection, kdf: cryptoAdapters.kdf }
+                ? {
+                    ...protection,
+                    kdf: {
+                      async derive(...args) {
+                        onStage?.('deriving');
+                        const key = await kdf.derive(...args);
+                        onStage?.('running');
+                        return key;
+                      },
+                    },
+                  }
                 : protection,
             metadata,
             createdAtUnixSec,
@@ -130,19 +146,23 @@ export async function encryptToDestination(
           return result;
         });
         if (temp) await temp.abort();
+        const name = await nativeCall((native) =>
+          native.outputLabel(generation, output.id),
+        ).catch(() => null);
+        throwIfAborted(job.signal);
         return {
-          recovery: result!,
+          fileName: name,
+          byteSize: planned.totalSize,
           file: savedFile(output, binaryMime, 'ciphertext'),
           savedTo: label,
+          recovery: recover(result!),
         };
       } catch (error) {
-        if (result?.mode === 'raw') zeroize(result.fileKey);
+        if (result) wipeEncryptionKey(result);
         throw error;
       }
     },
-    ({ recovery }) => {
-      if (recovery.mode === 'raw') zeroize(recovery.fileKey);
-    },
+    ({ recovery }) => discard(recovery),
   );
 }
 
