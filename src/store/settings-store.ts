@@ -60,26 +60,34 @@ export function createSettingsStore(storage: SettingsStorage) {
     storageError: boolean;
     hydrate(): Promise<void>;
     setTheme(theme: ThemePreference): Promise<void>;
-  }>((set, get) => ({
-    settings: { ...defaultSettings },
-    ready: false,
-    storageError: false,
-    async hydrate() {
-      try {
-        set({ settings: parseSettings(await storage.read()), ready: true });
-      } catch {
-        set({ ready: true, storageError: true });
-      }
-    },
-    async setTheme(theme) {
-      const settings = { ...get().settings, theme };
-      // Save before committing: failed writes leave the current selection intact.
-      try {
-        await storage.write(serializeSettings(settings));
-        set({ settings, storageError: false });
-      } catch {
-        set({ storageError: true });
-      }
-    },
-  }));
+    setClipboardSeconds(value: Settings['clipboardSeconds']): Promise<void>;
+  }>((set, get) => {
+    let writes = Promise.resolve();
+    function save(patch: Partial<Settings>) {
+      writes = writes.then(async () => {
+        const settings = { ...get().settings, ...patch };
+        try {
+          await storage.write(serializeSettings(settings));
+          set({ settings, storageError: false });
+        } catch {
+          set({ storageError: true });
+        }
+      });
+      return writes;
+    }
+    return {
+      settings: { ...defaultSettings },
+      ready: false,
+      storageError: false,
+      async hydrate() {
+        try {
+          set({ settings: parseSettings(await storage.read()), ready: true });
+        } catch {
+          set({ ready: true, storageError: true });
+        }
+      },
+      setTheme: (theme) => save({ theme }),
+      setClipboardSeconds: (clipboardSeconds) => save({ clipboardSeconds }),
+    };
+  });
 }

@@ -65,3 +65,8 @@ Desktop.ini
 *.swp
 *.swo
 *~
+
+# Local Expo module build products
+/modules/**/build/
+/modules/**/.gradle/
+/modules/**/.cxx/

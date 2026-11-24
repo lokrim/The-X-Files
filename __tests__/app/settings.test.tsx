@@ -42,6 +42,9 @@ test('Settings supplies visible theme labels and marks the saved selection', asy
       ['✓ System'],
       ['Light'],
       ['Dark'],
+      ['Off'],
+      ['30 seconds'],
+      ['✓ 60 seconds'],
     ]);
 
     await act(async () => {
@@ -59,7 +62,14 @@ test('Settings supplies visible theme labels and marks the saved selection', asy
       ['System'],
       ['Light'],
       ['✓ Dark'],
+      ['Off'],
+      ['30 seconds'],
+      ['✓ 60 seconds'],
     ]);
+    await act(async () => {
+      buttons()[4]!.props.onPress();
+    });
+    expect(buttons()[4]!.children).toEqual(['✓ 30 seconds']);
     expect(JSON.stringify(screen.container.toJSON())).not.toContain(
       'Could not save or load preferences.',
     );

@@ -38,6 +38,7 @@ type DecryptOptions = StreamOptions & {
   credential: DecryptCredential;
   destination: Destination;
   onKdfProgress?: KdfProgress;
+  beforeOutput?: (metadata: XfileMetadata) => Promise<void>;
 };
 
 export type DecryptResult = {
@@ -173,6 +174,10 @@ export async function decryptXfile(
       zeroize(plaintext);
     }
     if (final) await verifyFinal(input, 0, metadata, signal);
+    if (destination.mode === 'extract' && !metadata.isZip)
+      throw new CoreError('UNSUPPORTED_ARCHIVE');
+    await options.beforeOutput?.(metadata);
+    throwIfAborted(signal);
     const checkpoint =
       destination.mode === 'save'
         ? streamProgress(metadata.totalSize, options)
@@ -191,7 +196,6 @@ export async function decryptXfile(
         );
     try {
       if (destination.mode === 'extract') {
-        if (!metadata.isZip) throw new CoreError('UNSUPPORTED_ARCHIVE');
         // ZIP owns the transaction for its files, including failures from outer AEAD/EOF.
         await extractStoreZip(
           payloadReader(records, metadata.totalSize),

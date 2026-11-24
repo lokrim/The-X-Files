@@ -53,7 +53,7 @@ public class SyntheticProvider extends DocumentsProvider {
   @Override public boolean isChildDocument(String parent, String child) { return parent.equals("root"); }
   @Override public String createDocument(String parent, String mime, String name) throws FileNotFoundException {
     if (!parent.equals("root")) throw new FileNotFoundException("P01B_DENIED");
-    String scenario = name.contains("deleteDenied") ? "deleteDenied" : name.contains("closeFault") ? "closeFault" : name.contains("full") ? "full" : name.contains("denied") ? "denied" : "normal";
+    String scenario = name.contains("deleteDenied") ? "deleteDenied" : name.contains("closeFault") ? "closeFault" : name.contains("slowWrite") ? "slowWrite" : name.contains("full") ? "full" : name.contains("denied") ? "denied" : "normal";
     String id = scenario + "-" + ids.incrementAndGet();
     File file = new File(base, id);
     try { if (!file.createNewFile()) throw new IOException(); } catch (IOException e) { throw new FileNotFoundException("P01B_CREATE_FAILED"); }
@@ -66,7 +66,7 @@ public class SyntheticProvider extends DocumentsProvider {
   }
   @Override public ParcelFileDescriptor openDocument(String id, String mode, CancellationSignal signal) throws FileNotFoundException {
     if (id.equals("denied") || id.startsWith("denied-")) throw new FileNotFoundException("P01B_PROVIDER_DENIED");
-    if (id.startsWith("full-")) throw new FileNotFoundException("P01B_NO_SPACE");
+    if (id.startsWith("full-")) throw new FileNotFoundException("P01B_NO_SPACE (ENOSPC)");
     try {
       if (id.equals("short")) {
         if (!mode.equals("r")) throw new FileNotFoundException("P01B_MODE_DENIED");
@@ -77,6 +77,17 @@ public class SyntheticProvider extends DocumentsProvider {
             while (left > 0) { int n = (int)Math.min(left, b.length); out.write(b, 0, n); left -= n; Thread.sleep(1); }
           } catch (Exception ignored) { /* Reader cancel deliberately closes pipe. */ }
         }).start(); return pipe[0];
+      }
+      if (id.startsWith("slowWrite-")) {
+        if (!mode.equals("w")) throw new FileNotFoundException("P01B_MODE_DENIED");
+        ParcelFileDescriptor[] pipe = ParcelFileDescriptor.createReliablePipe();
+        new Thread(() -> {
+          byte[] chunk = new byte[4096];
+          try (InputStream in = new ParcelFileDescriptor.AutoCloseInputStream(pipe[0])) {
+            while (in.read(chunk) != -1) Thread.sleep(30);
+          } catch (Exception ignored) { /* Test cancellation closes the write descriptor. */ }
+        }).start();
+        return pipe[1];
       }
       if (id.startsWith("closeFault-")) {
         ParcelFileDescriptor[] pipe = ParcelFileDescriptor.createReliablePipe();

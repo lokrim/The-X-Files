@@ -3,7 +3,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { parseStringPromise } = require('xml2js');
-const { permissions } = require('../plugins/with-offline-android.cjs').policy;
+const { permissions, debugMetroPermissions } =
+  require('../plugins/with-offline-android.cjs').policy;
 const intermediates = path.resolve(
   __dirname,
   '../android/app/build/intermediates',
@@ -48,6 +49,27 @@ async function main() {
     for (const name of permissions)
       assert(names.includes(name), `${profile}: ${name}`);
     const app = manifest.application[0];
+    const jobServices = (app.service || []).filter((service) =>
+      service.$['android:name'].startsWith('expo.modules.xfiles.'),
+    );
+    assert.equal(jobServices.length, 1, `${profile} production service count`);
+    assert.equal(
+      jobServices[0].$['android:name'],
+      'expo.modules.xfiles.FileJobService',
+    );
+    assert.equal(jobServices[0].$['android:exported'], 'false');
+    assert.equal(jobServices[0].$['android:foregroundServiceType'], 'dataSync');
+    assert.equal(jobServices[0].$['android:stopWithTask'], 'false');
+    assert(
+      !(app.receiver || []).some((receiver) =>
+        /p01b|p05|expo\.modules\.xfiles/i.test(receiver.$['android:name']),
+      ),
+      `${profile} contains a measurement receiver`,
+    );
+    assert(
+      !names.includes('android.permission.WAKE_LOCK'),
+      `${profile} WAKE_LOCK policy`,
+    );
     assert.equal(app.$['android:allowBackup'], 'false');
     assert.equal(
       app.$['android:fullBackupContent'],
@@ -62,15 +84,16 @@ async function main() {
         entry.$['android:name'].startsWith('expo.modules.updates.'),
       ),
     );
-    if (variant === 'release') {
+    {
       const allowed = new Set([
         ...permissions,
+        ...(variant === 'debug' ? debugMetroPermissions : []),
         'android.permission.VIBRATE',
         'android.permission.DETECT_SCREEN_CAPTURE',
         'com.xfiles.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION',
       ]);
       for (const name of names)
-        assert(allowed.has(name), `Unexpected release permission: ${name}`);
+        assert(allowed.has(name), `Unexpected ${profile} permission: ${name}`);
     }
     console.log(
       `PASS: ${profile} actual ${variant} merge, permissions=${names.join(',')}`,

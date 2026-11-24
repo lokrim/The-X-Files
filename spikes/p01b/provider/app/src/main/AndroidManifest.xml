@@ -4,6 +4,16 @@
     <provider android:name=".SyntheticProvider" android:authorities="com.xfiles.p01bprovider" android:exported="true" android:grantUriPermissions="true" android:permission="android.permission.MANAGE_DOCUMENTS">
       <intent-filter><action android:name="android.content.action.DOCUMENTS_PROVIDER" /></intent-filter>
     </provider>
+    <activity android:name=".P05ProbeActivity" android:label="P05 local recipient" android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.SEND" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <data android:mimeType="application/octet-stream" />
+        <data android:mimeType="application/vnd.xfiles.p05-fixture" />
+        <data android:mimeType="application/zip" />
+        <data android:mimeType="text/plain" />
+      </intent-filter>
+    </activity>
     <receiver android:name=".ControlReceiver" android:exported="true">
       <intent-filter><action android:name="com.xfiles.p01bprovider.GRANT" /><action android:name="com.xfiles.p01bprovider.REVOKE" /><action android:name="com.xfiles.p01bprovider.RESET" /><action android:name="com.xfiles.p01bprovider.STATUS" /></intent-filter>
     </receiver>

@@ -6,6 +6,7 @@ const excludedRoots = ['test-utils', '__tests__', 'spikes'];
 const allowedPackages = new Set([
   'react',
   'react-native',
+  'expo',
   'expo-router',
   'expo-status-bar',
   'expo-font',
@@ -82,6 +83,12 @@ function importViolation(specifier, from, root) {
   if (!allowedPackages.has(packageName(specifier)))
     return `Package is not approved for offline application imports: ${specifier}`;
   if (
+    specifier === 'expo' &&
+    path.relative(root, from).replaceAll('\\', '/') !== 'src/platform/native.ts'
+  )
+    return 'Expo native bridge is confined to the platform adapter.';
+  if (
+    specifier.startsWith('expo/') ||
     specifier.startsWith('react-native/') ||
     (specifier.startsWith('expo-file-system/') &&
       specifier !== 'expo-file-system/legacy')

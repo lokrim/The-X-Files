@@ -25,6 +25,7 @@ async function main() {
     ),
     'Unneeded server peer must remain omitted from the installed graph.',
   );
+  assert.equal(pkg.main, 'expo-router/entry');
   assert.equal(app.name, 'X-Files');
   assert.equal(app.android.package, 'com.xfiles.app');
   assert.equal(app.userInterfaceStyle, 'automatic');

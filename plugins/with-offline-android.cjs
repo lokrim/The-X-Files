@@ -17,6 +17,8 @@ const removePermissions = [
   'android.permission.ACCESS_WIFI_STATE',
   'android.permission.CHANGE_NETWORK_STATE',
   'android.permission.CHANGE_WIFI_STATE',
+  'android.permission.CHANGE_WIFI_MULTICAST_STATE',
+  'android.permission.ACCESS_LOCAL_NETWORK',
   'android.permission.SYSTEM_ALERT_WINDOW',
   'android.permission.READ_EXTERNAL_STORAGE',
   'android.permission.WRITE_EXTERNAL_STORAGE',
@@ -26,10 +28,24 @@ const removePermissions = [
   'android.permission.USE_BIOMETRIC',
   'android.permission.USE_FINGERPRINT',
 ];
+// The SDK 58 development launcher owns these permissions for Metro only.
+const debugMetroPermissions = [
+  'android.permission.INTERNET',
+  'android.permission.ACCESS_NETWORK_STATE',
+  'android.permission.CHANGE_WIFI_MULTICAST_STATE',
+  'android.permission.ACCESS_LOCAL_NETWORK',
+];
 const header =
   '<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">';
 const debugManifest = `${header}
   <uses-permission android:name="android.permission.INTERNET" />
+${removePermissions
+  .filter((name) => !debugMetroPermissions.includes(name))
+  .map(
+    (name) =>
+      `  <uses-permission android:name="${name}" tools:node="remove" />`,
+  )
+  .join('\n')}
   <application android:usesCleartextTraffic="true" tools:replace="android:usesCleartextTraffic" />
 </manifest>\n`;
 const releaseManifest = `${header}
@@ -130,6 +146,7 @@ module.exports = withOfflineAndroid;
 module.exports.policy = {
   permissions,
   removePermissions,
+  debugMetroPermissions,
   configureManifest,
   writeVariantFiles,
 };

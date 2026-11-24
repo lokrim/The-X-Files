@@ -1,4 +1,14 @@
-pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+pluginManagement {
+  repositories { google(); mavenCentral(); gradlePluginPortal() }
+  resolutionStrategy {
+    eachPlugin {
+      if (requested.id.id == 'com.android.application' && requested.version != null) {
+        // Reuse the same pinned AGP artifact as the app without a separate marker download.
+        useModule("com.android.tools.build:gradle:${requested.version}")
+      }
+    }
+  }
+}
 dependencyResolutionManagement { repositories { google(); mavenCentral() } }
 rootProject.name = 'P01bSyntheticProvider'
 include ':app'

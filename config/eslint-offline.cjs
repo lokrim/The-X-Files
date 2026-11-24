@@ -53,6 +53,15 @@ module.exports = {
         return {
           ImportDeclaration(node) {
             checkImport(node.source, node.source.value);
+            if (
+              node.source.value === 'expo' &&
+              (node.specifiers.length !== 1 ||
+                node.specifiers[0].imported?.name !== 'requireNativeModule')
+            )
+              report(
+                node,
+                'Only the named Expo native module loader is approved.',
+              );
             for (const item of node.specifiers) {
               if (
                 node.source.value === 'react-native' &&
@@ -86,6 +95,8 @@ module.exports = {
             checkImport(node.source, node.source.value);
           },
           ImportExpression(node) {
+            if (node.source.value === 'expo')
+              report(node, 'Import the Expo native module loader by name.');
             checkImport(node.source, node.source.value);
           },
           'Program:exit'() {

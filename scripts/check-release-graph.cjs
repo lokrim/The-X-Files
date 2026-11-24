@@ -23,6 +23,18 @@ assert(
   sources.some((source) => /(?:^|\/)app\/index\.tsx$/.test(source)),
   'Home was not in the actual graph',
 );
+for (const file of [
+  'crypto.ts',
+  'file-jobs.ts',
+  'job.ts',
+  'native.ts',
+  'screen-privacy.tsx',
+]) {
+  assert(
+    sources.some((source) => source.endsWith(`/src/platform/${file}`)),
+    `Production adapter missing from the actual graph: ${file}`,
+  );
+}
 for (const source of sources) {
   assert(!isExcluded(source), `Development/test source shipped: ${source}`);
   assert(

@@ -19,6 +19,7 @@ module.exports = {
     {
       ...shared,
       displayName: 'app',
+      setupFilesAfterEnv: ['<rootDir>/test-utils/mock-quick-crypto.ts'],
       testMatch: [
         '<rootDir>/__tests__/app/**/*.test.ts',
         '<rootDir>/__tests__/app/**/*.test.tsx',

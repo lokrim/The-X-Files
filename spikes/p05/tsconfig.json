@@ -1,0 +1,6 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "types": ["node", "react", "react-native"] },
+  "include": ["index.tsx", "vectors.ts"],
+  "exclude": []
+}

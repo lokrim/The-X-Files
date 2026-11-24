@@ -2,9 +2,16 @@ import { Button, Column, Host } from '@expo/ui';
 import { ScrollView, Text } from 'react-native';
 import { useStore } from 'zustand';
 
+import { clipboardExpiryDisclosure } from '@/platform/clipboard';
 import { settingsStore } from '@/platform/composition';
 import { useTheme } from '@/ui/theme';
 import { spacing, typography } from '@/ui/tokens';
+
+const clipboardOptions = [
+  { value: 0, label: 'Off' },
+  { value: 30, label: '30 seconds' },
+  { value: 60, label: '60 seconds' },
+] as const;
 
 const themeOptions = [
   { value: 'system', label: 'System' },
@@ -14,7 +21,8 @@ const themeOptions = [
 
 export default function Settings() {
   const { colors, scheme } = useTheme();
-  const { settings, ready, storageError, setTheme } = useStore(settingsStore);
+  const { settings, ready, storageError, setTheme, setClipboardSeconds } =
+    useStore(settingsStore);
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
@@ -35,13 +43,34 @@ export default function Settings() {
           ))}
         </Column>
       </Host>
+      <Text style={{ ...typography.title, color: colors.text }}>
+        Clear copied secrets
+      </Text>
+      <Host matchContents colorScheme={scheme}>
+        <Column>
+          {clipboardOptions.map(({ value, label }) => (
+            <Button
+              key={value}
+              label={settings.clipboardSeconds === value ? `✓ ${label}` : label}
+              disabled={!ready}
+              onPress={() => {
+                void setClipboardSeconds(value);
+              }}
+            />
+          ))}
+        </Column>
+      </Host>
+      <Text style={{ ...typography.caption, color: colors.muted }}>
+        {clipboardExpiryDisclosure}
+      </Text>
       {storageError && (
         <Text
           selectable
           accessibilityRole="alert"
           style={{ ...typography.body, color: colors.danger }}
         >
-          Could not save or load preferences. Try selecting a theme again.
+          Could not save or load preferences. Try selecting the preference
+          again.
         </Text>
       )}
       <Text style={{ ...typography.body, color: colors.muted }}>
