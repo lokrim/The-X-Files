@@ -2,23 +2,15 @@ import { useEffect } from 'react';
 import { Stack } from 'expo-router/stack';
 import { StatusBar } from 'expo-status-bar';
 
+import { useSettings } from '@/features/settings/use-settings';
 import { settingsStore, sweepStartupTemp } from '@/platform/composition';
 import { ScreenPrivacy } from '@/platform/screen-privacy';
-import { useStore } from 'zustand';
-import { useTheme } from '@/ui/theme';
+import { ThemeProvider, useTheme } from '@/ui/theme';
 
-export default function RootLayout() {
+function AppStack() {
   const { colors, scheme } = useTheme();
-  const blocking = useStore(
-    settingsStore,
-    (state) => state.settings.screenshotBlocking,
-  );
-  useEffect(() => {
-    void settingsStore.getState().hydrate();
-    void sweepStartupTemp();
-  }, []);
   return (
-    <ScreenPrivacy blocking={blocking}>
+    <>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
@@ -31,6 +23,21 @@ export default function RootLayout() {
         <Stack.Screen name="index" options={{ title: 'X-Files' }} />
         <Stack.Screen name="settings" options={{ title: 'Settings' }} />
       </Stack>
-    </ScreenPrivacy>
+    </>
+  );
+}
+
+export default function RootLayout() {
+  const { settings } = useSettings();
+  useEffect(() => {
+    void settingsStore.getState().hydrate();
+    void sweepStartupTemp();
+  }, []);
+  return (
+    <ThemeProvider preference={settings.theme}>
+      <ScreenPrivacy blocking={settings.screenshotBlocking}>
+        <AppStack />
+      </ScreenPrivacy>
+    </ThemeProvider>
   );
 }

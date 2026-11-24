@@ -2,8 +2,12 @@ export const palettes = {
   light: {
     bg: '#F7F8FA',
     surface: '#FFFFFF',
+    accentSurface: '#EBECFF',
+    controlBorder: '#76839A',
+    scrim: 'rgba(15, 23, 42, 0.55)',
     text: '#0F172A',
     muted: '#64748B',
+    mutedOnPage: '#606F86',
     border: '#E2E8F0',
     primary: '#4F46E5',
     primaryText: '#FFFFFF',
@@ -14,8 +18,12 @@ export const palettes = {
   dark: {
     bg: '#0B0F19',
     surface: '#131A2A',
+    accentSurface: '#24284C',
+    controlBorder: '#73829A',
+    scrim: 'rgba(0, 0, 0, 0.68)',
     text: '#F1F5F9',
     muted: '#94A3B8',
+    mutedOnPage: '#94A3B8',
     border: '#1F2937',
     primary: '#818CF8',
     primaryText: '#0B0F19',
@@ -45,7 +53,12 @@ export const metrics = {
   icon: 28,
   stroke: 1,
   pressedOpacity: 0.7,
-  disabledOpacity: 0.5,
   motionMs: 200,
 } as const;
 export const lightShadow = '0 1px 2px rgba(0, 0, 0, 0.05)';
+
+export const layout = {
+  contentWidth: 680,
+  wide: 600,
+  largeFont: 1.25,
+} as const;

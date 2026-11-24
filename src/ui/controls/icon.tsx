@@ -1,0 +1,25 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import type { ComponentProps } from 'react';
+
+export type IconName = ComponentProps<typeof MaterialIcons>['name'];
+
+export function Icon({
+  name,
+  color,
+  size = 24,
+}: {
+  name: IconName;
+  color: string;
+  size?: number;
+}) {
+  return (
+    <MaterialIcons
+      name={name}
+      color={color}
+      size={size}
+      allowFontScaling={false}
+      accessible={false}
+      importantForAccessibility="no"
+    />
+  );
+}

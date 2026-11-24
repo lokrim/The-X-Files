@@ -60,11 +60,34 @@ export function createSettingsStore(storage: SettingsStorage) {
     storageError: boolean;
     hydrate(): Promise<void>;
     setTheme(theme: ThemePreference): Promise<void>;
+    setScreenshotBlocking(value: boolean): Promise<void>;
+    setKeepOriginalName(value: boolean): Promise<void>;
     setClipboardSeconds(value: Settings['clipboardSeconds']): Promise<void>;
   }>((set, get) => {
-    let writes = Promise.resolve();
+    let pending = Promise.resolve();
+    let loaded = false;
+
+    async function load() {
+      try {
+        const settings = parseSettings(await storage.read());
+        loaded = true;
+        set({ settings, ready: true, storageError: false });
+      } catch {
+        set({ ready: true, storageError: true });
+      }
+    }
+
+    function enqueue(operation: () => Promise<void>) {
+      pending = pending.then(operation);
+      return pending;
+    }
+
     function save(patch: Partial<Settings>) {
-      writes = writes.then(async () => {
+      return enqueue(async () => {
+        // Defaults are safe to display after a read error, but may differ from
+        // the saved values for fields this edit does not change.
+        if (!loaded) await load();
+        if (!loaded) return;
         const settings = { ...get().settings, ...patch };
         try {
           await storage.write(serializeSettings(settings));
@@ -73,20 +96,19 @@ export function createSettingsStore(storage: SettingsStorage) {
           set({ storageError: true });
         }
       });
-      return writes;
     }
     return {
       settings: { ...defaultSettings },
       ready: false,
       storageError: false,
-      async hydrate() {
-        try {
-          set({ settings: parseSettings(await storage.read()), ready: true });
-        } catch {
-          set({ ready: true, storageError: true });
-        }
-      },
+      hydrate: () =>
+        enqueue(async () => {
+          if (!loaded) await load();
+        }),
       setTheme: (theme) => save({ theme }),
+      setScreenshotBlocking: (screenshotBlocking) =>
+        save({ screenshotBlocking }),
+      setKeepOriginalName: (keepOriginalName) => save({ keepOriginalName }),
       setClipboardSeconds: (clipboardSeconds) => save({ clipboardSeconds }),
     };
   });

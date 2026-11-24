@@ -3,7 +3,8 @@ import { AppState, Text, type AppStateStatus } from 'react-native';
 import { createRoot } from 'test-renderer';
 
 import { nativePlatform } from '@/platform/native';
-import { ScreenPrivacy, SensitiveContent } from '@/platform/screen-privacy';
+import { ScreenPrivacy } from '@/platform/screen-privacy';
+import { SensitiveScreen } from '@/ui/controls/sensitive-screen';
 
 jest.mock('@/platform/native', () => ({
   nativePlatform: jest.fn(),
@@ -39,7 +40,7 @@ test('waits for FLAG_SECURE and hides sensitive content on inactivity without cl
     await act(async () => {
       screen.render(
         <ScreenPrivacy blocking>
-          <SensitiveContent render={render} />
+          <SensitiveScreen focused render={render} />
         </ScreenPrivacy>,
       );
     });
@@ -71,6 +72,30 @@ test('waits for FLAG_SECURE and hides sensitive content on inactivity without cl
       confirmations[2]!(true);
     });
     expect(tree()).toContain('volatile fixture');
+    // Android can blur and focus within one JS flush. A fresh native check is
+    // still required even if the intermediate hidden render was coalesced.
+    await act(async () => {
+      handlers.get('blur')?.('active');
+      handlers.get('focus')?.('active');
+    });
+    expect(tree()).not.toContain('volatile fixture');
+    await act(async () => {
+      handlers.get('change')?.('background');
+      confirmations[3]!(true);
+    });
+    expect(tree()).not.toContain('volatile fixture');
+    await act(async () => {
+      screen.render(
+        <ScreenPrivacy blocking={false}>
+          <SensitiveScreen focused={false} render={render} />
+        </ScreenPrivacy>,
+      );
+      handlers.get('change')?.('active');
+    });
+    expect(tree()).not.toContain('volatile fixture');
+    expect(setScreenSecure).toHaveBeenLastCalledWith(false);
+    await act(async () => confirmations[4]!(true));
+    expect(tree()).not.toContain('volatile fixture');
     expect(expireClipboard).toHaveBeenCalled();
   } finally {
     await act(async () => {

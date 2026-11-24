@@ -3,6 +3,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -19,6 +20,7 @@ export function ScreenPrivacy({
   blocking: boolean;
   children: ReactNode;
 }) {
+  const nextAttempt = useRef(0);
   const [focusAttempt, setFocusAttempt] = useState<number | null>(null);
   const configuration = useMemo(
     () => ({ blocking, focusAttempt }),
@@ -34,7 +36,7 @@ export function ScreenPrivacy({
     };
     const show = () => {
       if (!active) return;
-      setFocusAttempt((previous) => (previous ?? 0) + 1);
+      setFocusAttempt(++nextAttempt.current);
       void nativeCall((native) => native.expireClipboard()).catch(
         () => undefined,
       );
@@ -77,11 +79,20 @@ export function ScreenPrivacy({
 }
 
 /** Keep input/result state with the flow owner. Hiding this subtree does not wipe it. */
-export function SensitiveContent({ render }: { render: () => ReactNode }) {
+export function SensitiveContent({
+  render,
+  fallback,
+}: {
+  render: () => ReactNode;
+  fallback?: ReactNode;
+}) {
   const ready = useContext(ScreenReady);
-  return ready ? (
-    render()
-  ) : (
-    <View accessible={false} importantForAccessibility="no-hide-descendants" />
-  );
+  return ready
+    ? render()
+    : (fallback ?? (
+        <View
+          accessible={false}
+          importantForAccessibility="no-hide-descendants"
+        />
+      ));
 }
